@@ -3,6 +3,8 @@ package com.dy.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dy.mapper.UserMapper;
 import com.dy.model.domain.User;
+import com.dy.model.entry.UserLogin;
+import com.dy.model.entry.UserRegister;
 import com.dy.service.UserService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,16 +30,26 @@ public class UserServiceImpl implements UserService {
     @Resource
     private UserMapper userMapper;
 
+    /**
+     * 盐值, 加密数据
+     */
+    private static final String SALT = "ding_yu";
+
+    /*
+    用户登录状态键
+     */
+    public static final String USER_LOGIN_STATE = "userLoginState";
 
     /**
-     * @param userAccount
-     * @param userPassword
-     * @param checkPassword
-     * @return
+     * @param userRegister@return
      */
-    public Long userRegister(String userAccount, String userPassword, String checkPassword) {
-        // 1.校验
+    public Long userRegister(UserRegister userRegister) {
 
+        String userAccount = userRegister.getUserAccount();
+        String userPassword = userRegister.getUserPassword();
+        String checkPassword = userRegister.getCheckPassword();
+
+        // 1.校验
         //  1.1 校验数据非空
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             return -1L;
@@ -84,8 +97,7 @@ public class UserServiceImpl implements UserService {
 
         //  2. 加密
         //  2.1  使用 md5 进行加密
-        //  2.2  加盐, 把水搞混
-        final String SALT = "ding_yu";
+
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
 
         //  3. 插入数据
@@ -93,6 +105,7 @@ public class UserServiceImpl implements UserService {
                 .userAccount(userAccount)
                 .userPassword(encryptPassword)
                 .build();
+
 
         int insert = userMapper.insert(user);
         log.info("数据库改变的条数: {}", insert);
@@ -104,5 +117,68 @@ public class UserServiceImpl implements UserService {
 
         return user.getId();
     }
+
+    public User userLogin(UserLogin userLongin, HttpServletRequest request) {
+
+        String userAccount = userLongin.getUserAccount();
+        String userPassword = userLongin.getUserPassword();
+
+        //  1.1 校验数据非空
+        if (StringUtils.isAnyBlank(userAccount, userPassword)) {
+            return null;
+        }
+
+        //  1.2 账户长度不小于 4 位
+        if (userAccount.length() < 4) {
+            return null;
+        }
+
+        //  1.3 密码不小于 8 位
+        if (userPassword.length() < 8) {
+            return null;
+        }
+
+        //  1.4 账户不包含特殊字符
+        //  匹配标点字符, 符号字符, 一个或多个空白字符
+        String validPattern = "\\pP|\\pS|\\s+";
+
+        Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
+        if (matcher.find()) {
+            return null;
+        }
+
+        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_account", userAccount);
+        queryWrapper.eq("user_password", encryptPassword);
+//        queryWrapper.eq("id", 8);
+
+        User user = userMapper.selectOne(queryWrapper);
+        if (user == null) {
+            log.info("user login failed, userAccount Cannot match userPassword");
+            return null;
+        }
+
+        //  查询出结果后, 要对用户信息进行脱敏, 不能直接将用户的密码返回给前端
+        //  这里设置的值, 是我查出来的用户 (它里面包含的信息就挺多的)
+        User secureUsers = new User();
+        secureUsers.setId(user.getId());
+        secureUsers.setUserName(user.getUserName());
+        secureUsers.setUserAccount(user.getUserAccount());
+        secureUsers.setAvatarUrl(user.getAvatarUrl());
+        secureUsers.setGender(user.getGender());
+        secureUsers.setEmail(user.getEmail());
+        secureUsers.setPhone(user.getPhone());
+        secureUsers.setUserStatus(user.getUserStatus());
+        secureUsers.setCreateTime(user.getCreateTime());
+
+        //  记录用户登录状态
+        request.getSession().setAttribute(USER_LOGIN_STATE, secureUsers);
+
+
+        return secureUsers;
+    }
+
 
 }
