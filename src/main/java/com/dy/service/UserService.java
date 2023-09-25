@@ -5,6 +5,7 @@ import com.dy.model.entry.UserLogin;
 import com.dy.model.entry.UserRegister;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author dy
@@ -12,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
  * @createDate 2023-09-22 19:52:12
  */
 public interface UserService {
+
 
 
     /**
@@ -29,4 +31,19 @@ public interface UserService {
      * @return
      */
     User userLogin(UserLogin userLogin, HttpServletRequest request);
+
+    /**
+     * 根据姓名查询用户
+     *
+     * @param username@return
+     */
+    List<User> queryUserList(String username);
+
+    /**
+     * 根据 id 删除用户
+     *
+     * @param id
+     * @return
+     */
+    Boolean deleteById(Long id);
 }

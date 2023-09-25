@@ -14,8 +14,12 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.dy.constant.UserConstant.USER_LOGIN_STATE;
 
 
 /**
@@ -35,10 +39,6 @@ public class UserServiceImpl implements UserService {
      */
     private static final String SALT = "ding_yu";
 
-    /*
-    用户登录状态键
-     */
-    public static final String USER_LOGIN_STATE = "userLoginState";
 
     /**
      * @param userRegister@return
@@ -162,22 +162,65 @@ public class UserServiceImpl implements UserService {
 
         //  查询出结果后, 要对用户信息进行脱敏, 不能直接将用户的密码返回给前端
         //  这里设置的值, 是我查出来的用户 (它里面包含的信息就挺多的)
-        User secureUsers = new User();
-        secureUsers.setId(user.getId());
-        secureUsers.setUserName(user.getUserName());
-        secureUsers.setUserAccount(user.getUserAccount());
-        secureUsers.setAvatarUrl(user.getAvatarUrl());
-        secureUsers.setGender(user.getGender());
-        secureUsers.setEmail(user.getEmail());
-        secureUsers.setPhone(user.getPhone());
-        secureUsers.setUserStatus(user.getUserStatus());
-        secureUsers.setCreateTime(user.getCreateTime());
+        User secureUsers = getSecureUsers(user);
+
 
         //  记录用户登录状态
         request.getSession().setAttribute(USER_LOGIN_STATE, secureUsers);
 
 
         return secureUsers;
+    }
+
+    /**
+     * 根据用户名查询用户
+     *
+     * @param username@return
+     * @return
+     */
+    public List<User> queryUserList(String username) {
+
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.like("user_name", username);
+
+
+        List<User> userList = userMapper.selectList(queryWrapper);
+        List<User> secureUserList = new ArrayList<>();
+
+        for (User user : userList) {
+            user = getSecureUsers(user);
+            secureUserList.add(user);
+        }
+        return secureUserList;
+    }
+
+    /**
+     * 根据 id 删除用户
+     *
+     * @param id
+     * @return
+     */
+    public Boolean deleteById(Long id) {
+
+        int i = userMapper.deleteById(id);
+
+        return i == 1;
+    }
+
+    public User getSecureUsers(User originUser) {
+        User secureUser = new User();
+        secureUser.setId(originUser.getId());
+        secureUser.setUserName(originUser.getUserName());
+        secureUser.setUserAccount(originUser.getUserAccount());
+        secureUser.setAvatarUrl(originUser.getAvatarUrl());
+        secureUser.setGender(originUser.getGender());
+        secureUser.setEmail(originUser.getEmail());
+        secureUser.setPhone(originUser.getPhone());
+        secureUser.setUserRole(originUser.getUserRole());    //  把用户的权限也返回给前端
+        secureUser.setUserStatus(originUser.getUserStatus());
+        secureUser.setCreateTime(originUser.getCreateTime());
+
+        return secureUser;
     }
 
 
