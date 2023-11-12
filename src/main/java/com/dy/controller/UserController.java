@@ -105,6 +105,7 @@ public class UserController {
     @DeleteMapping("/delete")
     public Boolean deleteById(@RequestBody Long id, HttpServletRequest request) {
 
+        //  校验是否为管理员
         if (!isAdmin(request)) {
             return false;
         }
